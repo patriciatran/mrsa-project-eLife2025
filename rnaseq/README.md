@@ -1,10 +1,9 @@
-# Long-read Variant Calling Annotation pipeline
+# RNAseq
 
 # Purpose
 
 # Cyberinfrastructure & Implementation
 
-These scripts are meant to be run by HTCondor, a workflow manager that takes in an executable file and a submit file. It is meant to be run on the UW-Madison shared campus-computing infrastructure CHTC, but could work on other systems with few modifications. The pipeline takes advantage of the high-throughput scaling abilities of HTCondor to submit multiple jobs at the same time. For example, if we had an experimental design of 3 treatment, 3 replicate and 3 reference genomes and 10 time points, we would have to perform the steps 3 * 3 * 3 * 10 = 270 times. Instead, we write the metadata (information about the sample design) in a comma separated file containing 270 rows, and HTCondor will submit 270 jobs at the same time for us.
 
 # Workflow steps
 
