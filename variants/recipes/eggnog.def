@@ -1,0 +1,9 @@
+Bootstrap: docker
+From: continuumio/miniconda3:24.5.0-0
+
+%environment
+	export EGGNOG_DATA_DIR=/projects/bacteriology_tran_data/eggnog
+	export PATH=/projects/bacteriology_tran_data/eggnog:$PATH
+
+%post
+        conda install -c conda-forge -c bioconda eggnog-mapper=2.1.12

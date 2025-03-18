@@ -1,0 +1,23 @@
+container_image = file:///staging/ptran5/apptainer/bowtie.sif
+
+arguments = $(sample) $(ref) $(request_cpus)
+
+staging = /staging/ptran5/MoLab/charlie/rnaseq
+
+executable = 01_mapping.sh
+
+log = logs/mapping_$(sample)_$(process)_$(cluster).log
+error = logs/mapping_$(sample)_$(process)_$(cluster).err
+output = logs/mapping_$(sample)_$(process)_$(cluster).out
+
+transfer_input_files = file://$(staging)/reads/$(sample)_R1_001.fastq.gz, file://$(staging)/reads/$(sample)_R2_001.fastq.gz, file://$(staging)/ref/$(ref)_assembly.fasta
+transfer_output_files = $(sample)_vs_$(ref).sorted.bam
+transfer_output_remaps = "$(sample)_vs_$(ref).sorted.bam=file://$(staging)/mapping/$(sample)_vs_$(ref).sorted.bam"
+
+requirements = (HasCHTCStaging == true)
+
+request_cpus = 8
+request_memory = 32GB
+request_disk = 100GB      
+
+queue sample,ref,treatment from samples.txt

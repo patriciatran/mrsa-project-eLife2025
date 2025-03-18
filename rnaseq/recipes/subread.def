@@ -1,0 +1,5 @@
+Bootstrap: docker
+From: continuumio/miniconda3:25.1.1-2
+
+%post
+	conda install -c bioconda -c conda-forge subread=2.0.8

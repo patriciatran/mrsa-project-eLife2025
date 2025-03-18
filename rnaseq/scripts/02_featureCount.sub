@@ -1,0 +1,23 @@
+container_image = file:///staging/ptran5/apptainer/subread.sif
+
+arguments = $(sample) $(ref) $(request_cpus)
+
+staging = /staging/ptran5/MoLab/charlie/rnaseq
+
+executable = 02_featureCount.sh
+
+log = logs/count_$(sample)_$(ref).log
+error = logs/count_$(sample)_$(ref).err
+output = logs/count_$(sample)_$(ref).out
+
+transfer_input_files = file://$(staging)/mapping/$(sample)_vs_$(ref).sorted.bam,file://$(staging)/ref/$(ref)_annotation/$(ref)_assembly.gtf
+transfer_output_files = $(sample)_vs_$(ref)_counts.txt
+transfer_output_remaps = "$(sample)_vs_$(ref)_counts.txt=file://$(staging)/counts/$(sample)_vs_$(ref)_counts.txt"
+
+requirements = (HasCHTCStaging == true)
+
+request_cpus = 8
+request_memory = 16GB
+request_disk = 50GB      
+
+queue sample,ref,treatment from samples.txt

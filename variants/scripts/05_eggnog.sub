@@ -1,0 +1,19 @@
+container_image = file:///staging/ptran5/apptainer/eggnog.sif
+
+executable = 05_eggnog.sh
+
+arguments = $(sample) $(staging)
+		
+log = logs/eggnog_$(sample)_$(Cluster)_$(Process).log
+error = logs/eggnog_$(sample)_$(Cluster)_$(Process).err
+output = logs/eggnog_$(sample)_$(Cluster)_$(Process).out
+   
+transfer_input_files = file://$(staging)/bakta_$(sample)_1.10.3.tar.gz
+transfer_output_files = $(sample)_eggnog.tar.gz
+transfer_output_remaps = "$(sample)_eggnog.tar.gz=file://$(staging)/$(sample)_eggnog.tar.gz"
+
+request_cpus = 20
+request_memory = 20GB
+request_disk = 30GB
+   
+queue sample,staging from references.txt

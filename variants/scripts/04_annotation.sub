@@ -1,0 +1,21 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/bakta1.10.3.sif
+
+executable = 04_annotation.sh
+ 
+arguments = $(reference) $(request_cpus)
+
+requirements = (HasCHTCStaging == true) && (HasChtcProjects == true)
+		
+log = logs/bakta1.10.3_$(reference).log
+error = logs/bakta1.10.3_$(reference).err
+output = logs/bakta1.10.3_$(reference).out
+
+transfer_input_files = file://$(staging)/$(reference)_assembly.fasta
+transfer_output_files =  bakta_$(reference).tar.gz
+transfer_output_remaps = "bakta_$(reference).tar.gz=file://$(staging)/bakta_$(reference)_1.10.3.tar.gz"
+
+request_cpus = 8
+request_memory = 50GB
+request_disk = 25GB
+   
+queue reference,staging from references.txt

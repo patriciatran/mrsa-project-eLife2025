@@ -1,0 +1,21 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/filtlong.sif
+
+arguments = $(sample) $(staging)
+
+executable = 01_filtlong.sh
+
+transfer_input_files = file://$(staging)/reads/$(sample).fastq.gz
+transfer_output_files = $(sample)_filtlong.fastq.gz
+transfer_output_remaps = "$(sample)_filtlong.fastq.gz=file://$(staging)/filtlong/$(sample)_filtlong.fastq.gz"
+
+log = logs/filtlong_$(sample)_$(cluster).log
+error = logs/filtlong_$(sample)_$(cluster).err
+output = logs/filtlong_$(sample)_$(cluster).out
+
+requirements = (HasCHTCStaging == true) && (HasChtcProjects == true)
+
+request_cpus = 8
+request_memory = 16GB
+request_disk = 10GB      
+
+queue sample,ref,staging from Samples_and_Ref.txt

@@ -1,0 +1,21 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/minimap2.sif
+
+arguments = $(staging) $(sample) $(reference)
+
+executable = 02_minimap.sh
+
+log = logs/minimap_$(sample)_$(process)_$(cluster).log
+error = logs/minimap_$(sample)_$(process)_$(cluster).err
+output = logs/minimap_$(sample)_$(process)_$(cluster).out
+
+transfer_input_files = file://$(staging)/filtlong/$(sample)_filtlong.fastq.gz, file://$(staging)/$(reference)_assembly.fasta
+transfer_output_files = $(sample)_vs_$(reference).sam
+transfer_output_remaps = "$(sample)_vs_$(reference).sam=file://$(staging)/mapping/$(sample)_vs_$(reference).sam"
+
+requirements = (HasCHTCStaging == true)
+
+request_cpus = 8
+request_memory = 30GB
+request_disk = 20GB      
+
+queue sample,reference,staging from Samples_and_Ref.txt

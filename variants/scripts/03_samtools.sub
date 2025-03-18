@@ -1,0 +1,22 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/samtools.sif
+
+arguments = $(staging) $(sample) $(reference)
+
+executable = 03_samtools.sh
+
+log = logs/samtools_$(sample)_$(process)_$(cluster).log
+error = logs/samtools_$(sample)_$(process)_$(cluster).err
+output = logs/samtools_$(sample)_$(process)_$(cluster).out
+
+transfer_input_files = file://$(staging)/mapping/$(sample)_vs_$(reference).sam
+transfer_output_files = $(sample)_vs_$(reference).bam, $(sample)_vs_$(reference).mapped.bam, $(sample)_vs_$(reference).sorted.bam, $(sample)_vs_$(reference).sorted.bai, $(sample)_vs_$(reference).coverage.tsv, $(sample)_vs_$(reference).mapped.sorted.bam
+
+transfer_output_remaps = "$(sample)_vs_$(reference).bam=file://$(staging)/mapping/$(sample)_vs_$(reference).bam; $(sample)_vs_$(reference).mapped.bam=file://$(staging)/mapping/$(sample)_vs_$(reference).mapped.bam; $(sample)_vs_$(reference).sorted.bam=file://$(staging)/mapping/$(sample)_vs_$(reference).sorted.bam; $(sample)_vs_$(reference).sorted.bai=file://$(staging)/mapping/$(sample)_vs_$(reference).sorted.bam; $(sample)_vs_$(reference).coverage.tsv=file://$(staging)/mapping/$(sample)_vs_$(reference).coverage.tsv; $(sample)_vs_$(reference).mapped.sorted.bam=file://$(staging)/mapping/$(sample)_vs_$(reference).mapped.sorted.bam"
+
+requirements = (HasCHTCStaging == true)
+
+request_cpus = 16
+request_memory = 20GB
+request_disk = 50GB      
+
+queue sample,reference,staging from Samples_and_Ref.txt 
