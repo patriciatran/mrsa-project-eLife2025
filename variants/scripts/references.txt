@@ -1,0 +1,6 @@
+MRSA252,/staging/ptran5/MoLab/charlie/SummerData
+LacFitz,/staging/ptran5/MoLab/charlie/SummerData
+MW2,/staging/ptran5/MoLab/charlie/SummerData
+7Y6WJC_2_ADL2,/staging/ptran5/MoLab/charlie/ADL
+7Y6WJC_3_ADL3,/staging/ptran5/MoLab/charlie/ADL
+7Y6WJC_4_ADL4,/staging/ptran5/MoLab/charlie/ADL
