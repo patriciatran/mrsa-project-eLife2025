@@ -1,6 +1,14 @@
 # MRSA Project
 
 This is the code for the project https://elifesciences.org/reviewed-preprints/102743v1.
+[include project summary here]
+
+This code repository contains the container recipes and scripts using in a few of the major bioinformatics analyses in the paper:
+1. Reference MRSA genomes variant identification (`./variants`)
+2. Characterization of phages (`./phages`)
+3. Differential gene expression analysis (`./rnaseq`)
+
+This main README contains a summary of the repository, but you go to each folder (`./variants`, `./phages`, and `./rnaseq`) for more detailed information such as software versions, description of code, etc.
 
 # Description
 
