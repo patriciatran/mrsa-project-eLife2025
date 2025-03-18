@@ -1,0 +1,17 @@
+container_image = file:///staging/ptran5/apptainer/bakta.sif
+executable = 03-annotation.sh
+
+arguments = $(sample) $(request_cpus)
+		
+log = logs/bakta_$(sample)_$(Cluster)_$(Process).log
+error = logs/bakta_$(sample)_$(Cluster)_$(Process).err
+output = logs/bakta_$(sample)_$(Cluster)_$(Process).out
+
+transfer_output_files =  bakta_$(sample).tar.gz
+transfer_output_remaps = "bakta_$(sample).tar.gz:file///staging/ptran5/MoLab/bakta_$(sample).tar.gz"
+
+request_cpus = 20
+request_memory = 16GB
+request_disk = 16GB
+   
+queue sample from sample_list.txt

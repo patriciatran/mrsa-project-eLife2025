@@ -1,0 +1,6 @@
+Bootstrap: docker
+From: continuumio/miniconda3:24.4.0-0
+
+%post
+	conda install -c bioconda -c conda-forge  minimap2 samtools spades trimmomatic
+#        conda install -c bioconda -c conda-forge prodigal trimmomatic spades=4.0.0 bwa=0.7.17 samtools=1.15.1 bowtie2 bedtools

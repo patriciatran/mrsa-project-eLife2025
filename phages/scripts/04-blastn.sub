@@ -1,0 +1,26 @@
+# Provide HTCondor with the name of your .sif file and universe information
+container_image = file://$(staging)/apptainer/blast.sif
+
+staging = /staging/ptran5
+
+executable = 04-blastn.sh
+arguments = $(sample) $(request_cpus)
+
+# Include other files that need to be transferred here.
+# transfer_input_files = other_job_files
+transfer_input_files = file://$(staging)/MoLab/$(sample)_spades_output_folder.tar.gz
+transfer_output_files = $(sample).result.blast.tsv
+transfer_output_remaps = "$(sample).result.blast.tsv=file://$(staging)/MoLab/$(sample).result.blast.tsv"
+
+log = logs/blast_$(sample).log
+error = logs/blast_$(sample).err
+output = logs/blast_$(sample).out
+
+requirements = (HasCHTCStaging == true) && (OpSysMajorVer > 7)
+
+# Make sure you request enough disk for the container image in addition to your other input files
+request_cpus = 8
+request_memory = 32GB
+request_disk = 10GB   
+
+queue sample from sample_list.txt

@@ -1,0 +1,6 @@
+Bootstrap: docker
+From: oschwengers/bakta:v1.10.3
+
+
+%post
+

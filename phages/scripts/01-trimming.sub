@@ -1,0 +1,31 @@
+# Provide HTCondor with the name of your .sif file and universe information
+container_image = file://$(staging)/apptainer/PreProcessing.sif
+
+staging = /staging/ptran5
+
+executable = 01-trimming.sh
+arguments = $(sample) $(request_cpus) $(staging)
+
+# Include other files that need to be transferred here.
+transfer_input_files = file://$(staging)/$(sample)_R1_001.fastq.gz, file://$(staging)/$(sample)_R2_001.fastq.gz
+
+transfer_output_files = $(sample).1P.fastq.gz, $(sample).2P.fastq.gz
+transfer_output_remaps = "$(sample).1P.fastq.gz=file://$(staging)/$(sample).1P.fastq.gz;$(sample).2P.fastq.gz=file://$(staging)/$(sample).2P.fastq.gz"
+
+log = logs/trimming_$(sample).log
+error = logs/trimming_$(sample).err
+output = logs/trimming_$(sample).out
+
+requirements = (HasCHTCStaging == true) && (OpSysMajorVer > 7)
+
+# Make sure you request enough disk for the container image in addition to your other input files
+#request_cpus = 8
+#request_memory = 32GB
+#request_disk = 10GB
+
+request_cpus = 8
+request_memory = 100GB
+request_disk = 500GB
+
+
+queue sample from sample_list.txt

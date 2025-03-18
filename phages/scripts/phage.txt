@@ -1,0 +1,3 @@
+Staph1N_S32_assembly_de_novo
+EVO2_S33_assembly_de_novo
+EDN_SA_Ph1_S203_scaffolds

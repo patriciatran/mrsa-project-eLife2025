@@ -1,0 +1,22 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/checkV.sif
+
+executable = 05-checkv.sh
+
+arguments = $(sample) $(request_cpus)
+		
+log = logs/checkV_$(sample)_$(Cluster)_$(Process).log
+error = logs/checkV_$(sample)_$(Cluster)_$(Process).err
+output = logs/checkV_$(sample)_$(Cluster)_$(Process).out
+
+transfer_input_files = file:///staging/ptran5/MoLab/charlie/$(sample).fasta
+transfer_output_files = $(sample)_checkv_out.tar.gz
+transfer_output_remaps = "$(sample)_checkv_out.tar.gz=file:///staging/ptran5/MoLab/charlie/$(sample)_checkv_out.tar.gz"
+
+requirements = (HasCHTCStaging == true) && (OpSysMajorVer > 7) && (HasChtcProjects == true)
+
+
+request_cpus = 20
+request_memory = 16GB
+request_disk = 16GB
+   
+queue sample from phage.txt

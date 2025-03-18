@@ -1,0 +1,22 @@
+container_image = file:///projects/bacteriology_tran_data/apptainer/taxmyphage.sif
+
+executable = 06-taxmyphage.sh
+
+arguments = $(sample) $(request_cpus) /projects/bacteriology_tran_data/taxmyphage_db/
+		
+log = logs/taxmyphage_$(sample)_$(Cluster)_$(Process).log
+error = logs/taxmyphage_$(sample)_$(Cluster)_$(Process).err
+output = logs/taxmyphage_$(sample)_$(Cluster)_$(Process).out
+
+transfer_input_files = file:///staging/ptran5/MoLab/charlie/$(sample).fasta
+transfer_output_files = taxmyphage_$(sample).tar.gz
+transfer_output_remaps = "taxmyphage_$(sample).tar.gz=file:///staging/ptran5/MoLab/charlie/taxmyphage_$(sample)_all.tar.gz"
+
+requirements = (HasCHTCStaging == true) && (OpSysMajorVer > 7) && (HasChtcProjects == true)
+
+request_cpus = 20
+request_memory = 16GB
+request_disk = 16GB
+   
+queue sample from phage.txt
+

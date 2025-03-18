@@ -1,0 +1,27 @@
+# Provide HTCondor with the name of your .sif file and universe information
+container_image = file://$(staging)/apptainer/genome_assembly.sif
+
+executable = 02-genome_assembly.sh
+arguments = $(sample) $(request_cpus) $(staging) SaureusRN4220.fna
+
+staging = /staging/ptran5
+
+# Include other files that need to be transferred here.
+# transfer_input_files = other_job_files
+transfer_input_files = file://$(staging)/$(sample).1P.fastq.gz, file://$(staging)/$(sample).2P.fastq.gz
+transfer_output_files = $(sample)_output_folder.tar.gz
+transfer_output_remaps = "$(sample)_output_folder.tar.gz=file://$(staging)/MoLab/$(sample)_spades_output_folder.tar.gz"
+
+
+log = logs/HostRemoval_$(sample).log
+error = logs/HostRemoval_$(sample).err
+output = logs/HostRemoval_$(sample).out
+
+requirements = (HasCHTCStaging == true) && (OpSysMajorVer > 7)
+
+# Make sure you request enough disk for the container image in addition to your other input files
+request_cpus = 16
+request_memory = 32GB
+request_disk = 10GB    
+
+queue sample from sample_list.txt
