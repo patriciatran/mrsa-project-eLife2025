@@ -1,0 +1,25 @@
+INFO [2025-03-18 10:26:37] $x
+INFO [2025-03-18 10:26:37] list(genes_in_LF_up, genes_in_LF_down, genes_in_MW2_up, genes_in_MW2_down)
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $category.names
+INFO [2025-03-18 10:26:37] c("LacFitz up", "LacFitz down", "MW2 up", "MW2 down")
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $filename
+INFO [2025-03-18 10:26:37] paste0("figures/LF_MW2_venn_diagram_clean_pvalue", my_pvalueajd, 
+INFO [2025-03-18 10:26:37]     ".tiff")
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $imagetype
+INFO [2025-03-18 10:26:37] [1] "tiff"
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $output
+INFO [2025-03-18 10:26:37] [1] TRUE
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $lwd
+INFO [2025-03-18 10:26:37] [1] 1
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $fill
+INFO [2025-03-18 10:26:37] myCol
+INFO [2025-03-18 10:26:37] 
+INFO [2025-03-18 10:26:37] $col
+INFO [2025-03-18 10:26:37] c("black", "black", "black", "black")
+INFO [2025-03-18 10:26:37] 

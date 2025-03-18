@@ -1,0 +1,12 @@
+L-A_S491_L006,LacFitz,Control,1
+L-B_S492_L006,LacFitz,Control,2
+L-C_S493_L006,LacFitz,Control,3
+LplusA_S498_L006,LacFitz,Treated,1
+LplusB_S499_L006,LacFitz,Treated,2
+LplusC_S500_L006,LacFitz,Treated,3
+M-A_S488_L006,MW2,Control,1
+M-B_S489_L006,MW2,Control,2
+M-C_S490_L006,MW2,Control,3
+MplusA_S494_L006,MW2,Treated,1
+MplusB_S495_L006,MW2,Treated,2
+MplusC_S496_L006,MW2,Treated,3

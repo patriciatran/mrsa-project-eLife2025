@@ -1,0 +1,558 @@
+---
+title: "Differential Expression Analysis for RNA-seq data in MW2 and LacFitz"
+author: "Patricia Tran"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages:
+```{r}
+library(tidyverse)
+library(DESeq2)
+library(EnhancedVolcano)
+library(plotly)
+```
+
+# MW2 (Control vs Treated)
+
+## Make it into a matrix format:
+```{r}
+
+genes <- c("ebh",
+"ureA",
+"ureB",
+"ureC",
+"ureD",
+"ureE",
+"ureF",
+"ureG",
+"lytN",
+"fmhC",
+"essA",
+"essB",
+"essB",
+"crtM",
+"crtN",
+"crtP",
+"agrA",
+"tarM",
+"lukD",
+"lukE")
+
+setwd("~/OneDrive - UW-Madison/BioinformaticsJob/WorkProjects/Dept-of-Bacteriology/Mo_Lab/Mo_comparison_MRSA/3March2025_RNAseq/")
+
+mw2 <- read.table("MW2_transcripts.txt", header=TRUE)
+mw2 <- mw2 %>% mutate(Geneid_start_end = paste0(Geneid," (",Start,"-",End,")"))
+
+
+genes_mw2 <- mw2 %>% filter(Geneid %in% genes) %>% pull(Geneid_start_end)
+# Note: because we count the reads per gene, you will notice that when a gene is present more than once, there will be multiple start and end positions listed.
+
+colnames(mw2)
+mw2.matrix <- mw2[,c(13,7:12)]
+#mw2.matrix <- column_to_rownames(mw2.matrix, "Geneid_start_end")
+
+length(rownames(mw2.matrix))
+length(unique(rownames(mw2.matrix)))
+
+# Load metadata
+metaData <- read.table("samples.txt", sep=",", header=FALSE)
+colnames(metaData) <- c("Sample","ref","Treatment","Replicate")
+
+# Clean up column names so that they match the sample names in metaData
+colnames(mw2.matrix)
+
+colnames(mw2.matrix) <- str_replace(colnames(mw2.matrix),"mapping.M\\.","M\\-")
+colnames(mw2.matrix) <- str_replace(colnames(mw2.matrix),"mapping\\.","\\")
+colnames(mw2.matrix) <- str_replace(colnames(mw2.matrix),"_vs_MW2.sorted.bam","")
+
+
+```
+
+
+## Run DESeq2 analysis:
+
+```{r}
+metaData_mw2 <- metaData %>% filter(ref == "MW2")
+
+dds <- DESeqDataSetFromMatrix(countData=mw2.matrix, 
+                              colData=metaData_mw2,
+                              design=~Treatment, 
+                              tidy = TRUE)
+
+dds <- DESeq(dds)
+
+dds
+
+# take a look at the results:
+
+res <- results(dds)
+head(results(dds, tidy=TRUE)) 
+
+# Summarize results:
+summary(res)
+
+# Sort by p-value:
+res <- res[order(res$padj),]
+head(res)
+
+
+# Save table of results
+write.table(as.data.frame(res) %>% rownames_to_column("gene_start_end_direction"), "output/MW2_rnaseq.results.tsv", sep="\t", row.names = FALSE)
+
+res_table_MW2 <- as.data.frame(res) %>% rownames_to_column("gene_start_end_direction") %>%
+  filter(gene_start_end_direction %in% genes_mw2)
+
+min(res_table_MW2$padj)
+# The maximum pavalu is 0.001 so if we choose 0.002 that should emcompass it.
+max(res_table_MW2$padj)
+
+```
+
+## Plotting:
+
+```{r}
+
+
+
+# Plot counts:
+par(mfrow=c(2,3))
+# The genes are the top sorted gene by p-value
+plotCounts(dds, gene="ebh (905874-935588)", intgroup="Treatment")
+plotCounts(dds, gene="sarU (2039476-2040219)", intgroup="Treatment")
+plotCounts(dds, gene="lytN (698053-699171)", intgroup="Treatment")
+plotCounts(dds, gene="tarM (475515-476996)", intgroup="Treatment")
+plotCounts(dds, gene="DBIAII_02021 (2034376-2038491)", intgroup="Treatment")
+plotCounts(dds, gene="fmhC (699199-700443)", intgroup="Treatment")
+
+
+# PCA plot:
+vsdata <- vst(dds, blind=FALSE)
+plotPCA(vsdata, intgroup="Treatment") + theme_bw() + 
+  theme(panel.grid = element_blank()) 
+
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 10e-32,
+                title = 'MW2 RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_MW2.pdf", width = 8, height = 8)
+
+
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 0.002,
+                title = 'MW2 RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_MW2_pajd_value=0.002.pdf", width = 8, height = 8)
+
+# Label only the ones from the paper:
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                selectLab = str_replace(genes_mw2,"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 0.002,
+                title = 'MW2 RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_MW2_pajd_value=0.002_selectLabelsOnly.pdf", width = 8, height = 8)
+
+
+```
+
+# LacFitz (Control vs Treated)
+
+## Make it into a matrix format:
+```{r}
+
+lf <- read.table("LacFitz_transcripts.txt", header=TRUE)
+lf <- lf %>% mutate(Geneid_start_end = paste0(Geneid," (",Start,"-",End,")"))
+
+genes_lf <- lf %>% filter(Geneid %in% genes) %>% pull(Geneid_start_end)
+genes_lf
+# Note: because we count the reads per gene, you will notice that when a gene is present more than once, there will be multiple start and end positions listed.
+
+colnames(lf)
+lf.matrix <- lf[,c(13,7:12)]
+#lf.matrix <- column_to_rownames(lf.matrix, "Geneid_start_end")
+
+length(rownames(lf.matrix))
+length(unique(rownames(lf.matrix)))
+
+# Load metadata
+metaData <- read.table("samples.txt", sep=",", header=FALSE)
+colnames(metaData) <- c("Sample","ref","Treatment","Replicate")
+
+# Clean up column names so that they match the sample names in metaData
+colnames(lf.matrix)
+
+colnames(lf.matrix) <- str_replace(colnames(lf.matrix),"mapping.L\\.","L\\-")
+colnames(lf.matrix)
+colnames(lf.matrix) <- str_replace(colnames(lf.matrix),"mapping\\.","\\")
+colnames(lf.matrix)
+colnames(lf.matrix) <- str_replace(colnames(lf.matrix),"_vs_LacFitz.sorted.bam","")
+
+colnames(lf.matrix)
+
+```
+
+
+## Run DESeq2 analysis:
+
+```{r}
+metaData_lf <- metaData %>% filter(ref == "LacFitz")
+
+dds <- DESeqDataSetFromMatrix(countData=lf.matrix, 
+                              colData=metaData_lf,
+                              design=~Treatment, 
+                              tidy = TRUE)
+
+dds <- DESeq(dds)
+
+dds
+
+# take a look at the results:
+
+res <- results(dds)
+head(results(dds, tidy=TRUE)) 
+
+# Summarize results:
+summary(res)
+
+# Sort by p-value:
+res <- res[order(res$padj),]
+head(res)
+
+
+# Save table of results
+write.table(as.data.frame(res) %>% rownames_to_column("gene_start_end_direction"), "output/LacFitz_rnaseq.results.tsv", sep="\t", row.names = FALSE)
+
+res_table_lf <- as.data.frame(res) %>% rownames_to_column("gene_start_end_direction") %>%
+  filter(gene_start_end_direction %in% genes_lf)
+
+min(res_table_lf$padj)
+# The maximum pavalue is 0.00003389677 so if we choose 0.002 that should emcompass it.
+max(res_table_lf$padj)
+
+
+
+```
+
+## Plotting:
+
+```{r}
+# Plot counts:
+par(mfrow=c(2,3))
+# The genes are the top sorted gene by p-value
+plotCounts(dds, gene="PBCCJM_00477 (480024-480101)", intgroup="Treatment")
+plotCounts(dds, gene="ebh (914411-945676)", intgroup="Treatment")
+plotCounts(dds, gene="sarV (1832019-1832369)", intgroup="Treatment")
+plotCounts(dds, gene="fmhA (1975906-1977156)", intgroup="Treatment")
+plotCounts(dds, gene="ywqE (2266704-2267471)", intgroup="Treatment")
+plotCounts(dds, gene="PBCCJM_02436 (2465629-2466600)", intgroup="Treatment")
+
+# PCA plot:
+vsdata <- vst(dds, blind=FALSE)
+plotPCA(vsdata, intgroup="Treatment") + 
+  theme_bw() + 
+  theme(panel.grid = element_blank()) 
+
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 10e-32,
+                title = 'LacFitz RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_LacFitz.pdf", width = 8, height = 8)
+
+# Smaller p-value:
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 0.002,
+                title = 'LacFitz RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_LacFitz_pajd_value=0.002.pdf", width = 8, height = 8)
+
+# Smaller p-value and selected genes only:
+EnhancedVolcano(res,
+                lab = str_replace(rownames(res),"\\(.*",""),
+                selectLab = str_replace(genes_lf,"\\(.*",""),
+                subtitle = "(control vs treated)",
+                x = 'log2FoldChange',
+                y = 'padj',
+                col=c("grey30", "lightblue3", "green", "red2"),
+                labSize = 3,
+                pCutoff = 0.002,
+                title = 'LacFitz RNA-seq data',
+                drawConnectors = TRUE,
+                widthConnectors = 0.40)
+
+ggsave("figures/volcanoplot_rnaseq_LacFitz_pajd_value=0.002_selectLabelsOnly.pdf", width = 8, height = 8)
+
+```
+
+# Merging the two DEseq Tables:
+
+(put your cursor here & click on Run All Chunks Below after changing my_pvalueajd.
+
+```{r}
+
+### CHANGE THIS!! ###
+#my_pvalueajd=10e-32
+my_pvalueajd=0.002
+### CHANGE THIS!! ###
+
+merge_significant_genes <- function(my_pvalueajd) {
+  
+  print(my_pvalueajd)
+  # Read in the output tables from DESeq2, and only pick genes with pvalue < 10e-31 and those with <-2 or >2 log2FoldChange, as per the Volcano plots:
+
+LF <- read.table("output/LacFitz_rnaseq.results.tsv", header=TRUE) %>% filter((pvalue < my_pvalueajd) & ((log2FoldChange > 2)|(log2FoldChange < -2))) %>% mutate(Regulation = ifelse(log2FoldChange > 2, "upregulated","downregulated")) %>% mutate(Sample = "LacFitz")
+
+MW2 <- read.table("output/MW2_rnaseq.results.tsv", header=TRUE) %>% filter((pvalue < my_pvalueajd) & ((log2FoldChange > 2)|(log2FoldChange < -2))) %>% mutate(Regulation = ifelse(log2FoldChange > 2, "upregulated","downregulated")) %>% mutate(Sample = "MW2")
+
+# Merge the two tables together:
+LF_MW2_significant_genes <- rbind(LF, MW2)
+
+# Pull the gene name only from the table:
+LF_MW2_significant_genes$Gene = str_replace(LF_MW2_significant_genes$gene_start_end_direction," \\(.*","")
+
+print(genes %in% LF_MW2_significant_genes$Gene)
+
+# save table:
+write.table(LF_MW2_significant_genes, paste0("output/LF_MW2_significant_genes_pvalue_",my_pvalueajd,".tsv"),
+            sep="\t", 
+            row.names = FALSE, 
+            quote = FALSE, 
+            col.names = TRUE)
+  
+}
+
+merge_significant_genes(my_pvalueajd)
+
+
+```
+
+
+## Plotting a heatmap:
+
+```{r}
+
+LF_MW2_significant_genes <- read.table(file = paste0("output/LF_MW2_significant_genes_pvalue_",my_pvalueajd,".tsv"),
+                                       header=TRUE,
+                                       sep="\t")
+
+
+# Plotting a heatmap of upregulated vs downregulated genes, just by gene names:
+LF_MW2_significant_genes %>% select(Regulation, Sample, Gene) %>% arrange(Gene) %>%
+  ggplot(aes(x=Sample, y=Gene, fill=Regulation))+
+  geom_tile(color="white")+
+  theme_bw() +
+  scale_fill_manual(values=c("#3674a3","#c93c67"))+
+  scale_y_discrete(limits=rev)+
+  theme(panel.grid = element_blank())
+
+# there are some locus tag without any assigned names in both genomes. Since they are unknown genes, they might be actually representing the same genes, but with unknown function. For this reason, we filter them out from the heatmap, since they shouldn't be shown as separate rows. 
+# Futher work is needed to compare those sequences.
+
+LF_MW2_significant_genes %>% select(Regulation, Sample, Gene) %>% arrange(Gene) %>% filter(!grepl("PBCCJM",Gene)) %>%
+  filter(!grepl("DBIAII",Gene)) %>%
+  ggplot(aes(x=Sample, y=Gene, fill=Regulation))+
+  geom_tile(color="white")+
+  theme_bw() +
+  scale_fill_manual(values=c("#3674a3","#c93c67"))+
+  scale_y_discrete(limits=rev)+
+  theme(panel.grid = element_blank())
+
+```
+
+## Plotting a Venn diagram:
+
+```{r}
+
+# List of genes in BOTH samples:
+genes_in_both <- LF_MW2_significant_genes %>% group_by(Gene) %>% tally() %>% filter(n>1) %>% pull(Gene)
+
+genes_in_both
+
+length(genes_in_both)
+
+
+## Venn diagram:
+genes_in_LF_up <- LF_MW2_significant_genes %>% filter((Sample == "LacFitz") & (Regulation == "upregulated")) %>% pull(Gene)
+genes_in_LF_down <- LF_MW2_significant_genes %>% filter((Sample == "LacFitz") & (Regulation == "downregulated")) %>% pull(Gene)
+genes_in_MW2_up <- LF_MW2_significant_genes %>% filter((Sample == "MW2") & (Regulation == "upregulated")) %>% pull(Gene)
+genes_in_MW2_down <- LF_MW2_significant_genes %>% filter((Sample == "MW2") & (Regulation == "downregulated")) %>% pull(Gene)
+
+library(VennDiagram)
+library(RColorBrewer)
+myCol <- brewer.pal(4, "Pastel2")
+
+venn.diagram(
+  x = list(genes_in_LF_up, genes_in_LF_down, genes_in_MW2_up, genes_in_MW2_down),
+  category.names = c("LacFitz up","LacFitz down","MW2 up", "MW2 down"),
+  filename = paste0("figures/LF_MW2_venn_diagram_pvalue",my_pvalueajd,".tiff"),
+  imagetype = "tiff",
+  output=TRUE,
+  
+          # Circles
+        lwd = 1,
+        #lty = 'blank',
+        fill = myCol,
+  col = c("black","black","black","black")
+)
+
+ 
+```
+
+# Comparing the FAA identidies between the 2 strains:
+
+In the previous table, we merged the genes based on names. In some case, esp those without a gene name (e.g. those with an ID "PBCCJM"or "DBIAII"), we want to know how distant or similar they are.
+
+I used mmseqs2 to compare the proteins.
+
+```{bash, eval=FALSE}
+mmseqs_avx2 createdb ref/LacFitz_annotation/LacFitz_assembly.faa LF_db
+mmseqs_avx2 easy-search ref/MW2_annotation/MW2_assembly.faa LF_db results.m8 ./tmp
+```
+
+
+```{r}
+mmseq2 <- read.table("results.m8")
+colnames(mmseq2) <- c("query_id", "target_id", "seq_identity", "alignment_length", "mismatches", 
+              "gap_openings", "query_start", "query_end", "target_start", "target_end", 
+              "e_value", "bit_score")
+
+unknown_genes <- LF_MW2_significant_genes %>% select(Regulation, Sample, Gene) %>% arrange(Gene) %>% filter(grepl("PBCCJM",Gene) | grepl("DBIAII",Gene)) %>% pull(Gene)
+
+mmseq2_subset <- mmseq2 %>% filter(query_id %in% unknown_genes | target_id %in% unknown_genes)
+
+# A protein identity of 40% is pretty good:
+
+# YOU CAN CHANGE THIS!
+identity_percent = 0.8
+
+good_matches <- mmseq2_subset %>% filter(seq_identity>identity_percent) %>% select(1:2)
+good_matches$combined_Genename <- paste0(good_matches$query_id,"=",good_matches$target_id)
+
+# Reorganize the table of significant genes such that if a gene is present in the perfect match table, give it a new name.
+
+LF_MW2_significant_genes_good_matches <- LF_MW2_significant_genes %>% left_join(good_matches, by=c("Gene"="query_id"))
+colnames(LF_MW2_significant_genes_good_matches)[12] <- "combined_Genename1"
+
+LF_MW2_significant_genes_good_matches <- LF_MW2_significant_genes_good_matches %>% left_join(good_matches, by=c("Gene"="target_id"))
+
+LF_MW2_significant_genes_good_matches <- LF_MW2_significant_genes_good_matches %>% arrange(combined_Genename1, combined_Genename)
+
+
+LF_MW2_significant_genes_good_matches$GeneName_clean <- "" 
+
+
+length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))
+length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename)))
+
+LF_MW2_significant_genes_good_matches$GeneName_clean[1:length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))] <- LF_MW2_significant_genes_good_matches$combined_Genename1[1:length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))]
+
+LF_MW2_significant_genes_good_matches$GeneName_clean[(length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))+1):(length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))+length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename))))] <-
+LF_MW2_significant_genes_good_matches$combined_Genename[(length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))+1):(length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename1)))+length(which(!is.na(LF_MW2_significant_genes_good_matches$combined_Genename))))]
+
+LF_MW2_significant_genes_good_matches <- LF_MW2_significant_genes_good_matches %>% mutate(GeneName_clean = ifelse(test = GeneName_clean == "", yes = Gene,  no = GeneName_clean))
+
+# clean up the table:
+head(LF_MW2_significant_genes_good_matches)
+
+LF_MW2_significant_genes_good_matches <- LF_MW2_significant_genes_good_matches %>% select(-target_id, -combined_Genename1, -query_id, -combined_Genename)
+
+
+write.table(LF_MW2_significant_genes_good_matches, "output/LF_MW2_significant_genes_clean.tsv",
+            sep="\t", row.names = FALSE, quote = FALSE, col.names = TRUE)
+
+```
+
+
+# Replot heatmap with cleaned table:
+
+```{r}
+
+heatmap_data <- LF_MW2_significant_genes_good_matches  %>% select(Regulation, Sample, GeneName_clean) %>% arrange(GeneName_clean) %>% distinct() %>% spread(Sample, Regulation)
+
+
+LF_MW2_significant_genes_good_matches  %>% select(Regulation, Sample, GeneName_clean) %>% arrange(GeneName_clean) %>% distinct() %>%
+  ggplot(aes(x=Sample, y=GeneName_clean, fill=Regulation))+
+  geom_tile(color="white")+
+  theme_bw() +
+  scale_fill_manual(values=c("#3674a3","#c93c67"))+
+  scale_y_discrete(limits=rev)+
+  theme(panel.grid = element_blank(),
+        text = element_text(size=6))+
+  xlab("Genome")+
+  ylab(paste0("Gene name (= means >",identity_percent," identical proteins in both genomes)\n PBCCJM = LacFitz, DBIAII = MW2"))
+
+
+ggsave(paste0("figures/heatmap_gene_cleaned_padj_",my_pvalueajd,".pdf"), width = 4, height = 10)
+
+```
+
+
+# Remake the Venn Diagram now that the proteins are cleaned up:
+
+```{r}
+## Venn diagram:
+heatmap_data <- heatmap_data %>% gather(Sample, Regulation, 2:3) 
+
+genes_in_LF_up <- heatmap_data %>% filter((Sample == "LacFitz") & (Regulation == "upregulated")) %>% pull(GeneName_clean)
+genes_in_LF_down <- heatmap_data  %>% filter((Sample == "LacFitz") & (Regulation == "downregulated")) %>% pull(GeneName_clean)
+genes_in_MW2_up <- heatmap_data  %>% filter((Sample == "MW2") & (Regulation == "upregulated")) %>% pull(GeneName_clean)
+genes_in_MW2_down <- heatmap_data %>% filter((Sample == "MW2") & (Regulation == "downregulated")) %>% pull(GeneName_clean)
+
+venn.diagram(
+  x = list(genes_in_LF_up, genes_in_LF_down, genes_in_MW2_up, genes_in_MW2_down),
+  category.names = c("LacFitz up","LacFitz down","MW2 up", "MW2 down"),
+  filename = paste0("figures/LF_MW2_venn_diagram_clean_pvalue",my_pvalueajd,".tiff"),
+  imagetype = "tiff",
+  output=TRUE,
+  
+          # Circles
+        lwd = 1,
+        #lty = 'blank',
+        fill = myCol,
+  col = c("black","black","black","black")
+)
+
+```
