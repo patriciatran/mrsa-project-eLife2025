@@ -2,12 +2,22 @@
 
 # Purpose
 
+The purpose of the RNA-seq pipeline is to map short-reads (Illumina) transcripts onto reference *Staph aureus* genomes, count transcripts across the different treatments. The data is processed using DESeq2 to identify differentially expressed genes between treatments.
+
 # Cyberinfrastructure & Implementation
 
+The RNA sequence processing was done using `HTCondor` on CHTC using submit and executable files available under `./scripts`. Apptainer definition files are available under `./recipes`. After the data was processed in the form of a gene count matrix, the data was exported and analysed using R and Rstudio using the code under `./Rcode`. 
 
 # Workflow steps
 
+## CHTC
+1. Mapping reads to reference genomes 
+2. Count transcripts mapping to gene features
+3. Use mmseqs2 to find protein similarity between the two reference genomes.
 
+## R
+1. Perform DEseq2 analysis on both genomes
+2. Combine and merge results to compare up-regulated and down-regulated genomes between the two genomes.
 
 
 # Repository files

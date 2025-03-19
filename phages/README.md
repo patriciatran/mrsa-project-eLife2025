@@ -2,11 +2,16 @@
 
 # Purpose
 
-# Cyberinfrastructure & Implementation
-
+The goal of this pipeline is to assemble phage genomes, annotate genes encoded by the genomes, and assess genome quality and taxonomic classification of the phages. 
 
 # Workflow steps
 
+1. Trim sequences using Trimmomatic
+2. Genome assembly: remove host contaminants from reads, and used leftover (unmapped) reads for assembly using SPADES.
+3. Perform genome annotation using Bakta.
+4. Find closely related genomes on NCBI using BLASTn. 
+5. Assess phage genome quality (completeness) using CheckV.
+6. Assign taxonomy to phages using TaxMyPhage.
 
 # Repository files
 
@@ -45,17 +50,14 @@ cd ..
 This workflow will create transcripts count files. I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
 For instructions, please visit: https://chtc.cs.wisc.edu/uw-research-computing/globus
 
-## Importing to R / Rstudio for analysis with DESeq2
-
-An Rscript is available at XXXXXX showing how the data was processed for the paper.
-
 ## References
 This pipeline uses the following tools:
 
-- Software: link
-- Software: link
-- Software: link
-- Software: link
+- Trimmomatic v0.39 : https://github.com/timflutre/trimmomatic
+- SPADES v4.0.0: https://github.com/ablab/spades
+- Blastn v.2.16.0: https://blast.ncbi.nlm.nih.gov/Blast.cgi
+- CheckV v.1.0.3: https://bitbucket.org/berkeleylab/checkv/src/master/
+- TaxMyPhage v.0.3.4: https://github.com/amillard/tax_myPHAGE/blob/main/README.md
 
 
 
