@@ -59,12 +59,18 @@ For instructions, please visit: https://chtc.cs.wisc.edu/uw-research-computing/g
 
 ## Importing to R / Rstudio for analysis with DESeq2
 
-An Rscript is available at XXXXXX showing how the data was processed for the paper.
+An Rscript is available at [./Rcode](./RCode) showing how the data was processed for the paper.
 
 ## References
 This pipeline uses the following tools:
 
-- Software: link
+- Bowtie2 v.2.5.4: https://github.com/BenLangmead/bowtie2
+- FeatureCount v.2.0.8 : https://subread.sourceforge.net/featureCounts.html
+- R v.4.4.0 : https://cran.r-project.org/bin/macosx/base/
+- DESeq v.1.44.0: https://bioconductor.org/packages/release/bioc/html/DESeq2.html
+- Tidyverse 2.0.0: https://www.tidyverse.org/
+- EnhancedVolcanoPlots (version 1.22.0): https://github.com/kevinblighe/EnhancedVolcano
+
 
 
 
