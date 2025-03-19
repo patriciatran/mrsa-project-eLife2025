@@ -4,11 +4,13 @@ This is the code for the project https://elifesciences.org/reviewed-preprints/10
 [include project summary here]
 
 This code repository contains the container recipes and scripts using in a few of the major bioinformatics analyses in the paper:
-1. Reference MRSA genomes variant identification (`./variants`)
-2. Characterization of phages (`./phages`)
-3. Differential gene expression analysis (`./rnaseq`)
+1. Reference MRSA genomes variant identification ([./variants](./variants))
+2. Characterization of phages ([./phages](./phages))
 
-This main README contains a summary of the repository, but you go to each folder (`./variants`, `./phages`, and `./rnaseq`) for more detailed information such as software versions, description of code, etc.
+3. Differential gene expression analysis ([./rnaseq](./rnaseq))
+
+
+This main README contains a summary of the repository, individual readmes for each are also available ([./variants/README.md](./variants/README.md), [./phages/README.me](./phages/README.md), and [./rnaseq/README.md](./rnaseq/README.md)) for more detailed information such as software versions, description of code, etc.
 
 # Description
 
@@ -33,4 +35,4 @@ Each folder contains `HTCondor` submit and executable files under `folder/script
 Bacteriophage infection drives loss of β-lactam resistance in methicillin-resistant Staphylococcus aureus. 
 My Tran, Angel J Hernandez Viera, Patricia Q Tran, Charlie Y Mo
 Department of Bacteriology, University of Wisconsin-Madison, USA
-https://doi.org/10.7554/eLife.102743.1
+[https://doi.org/10.7554/eLife.102743.1](https://doi.org/10.7554/eLife.102743.1)
