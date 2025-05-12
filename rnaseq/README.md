@@ -53,6 +53,14 @@ cd ..
 
 ## Run code
 
+```
+condor_submit 01_mapping.sub
+# wait for job to complete
+condor_submit 02_featureCount.sub
+# wait for job to complete
+
+```
+
 ## Next steps
 This workflow will create transcripts count files. I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
 For instructions, please visit: https://chtc.cs.wisc.edu/uw-research-computing/globus
