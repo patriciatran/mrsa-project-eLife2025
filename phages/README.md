@@ -47,7 +47,8 @@ cd ..
 ## Run code
 
 ## Next steps
-This workflow will create transcripts count files. I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
+This workflow will create assembled phage genomes, along with genome annotations and taxonomy files.
+I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
 For instructions, please visit: https://chtc.cs.wisc.edu/uw-research-computing/globus
 
 ## References

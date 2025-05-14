@@ -123,7 +123,7 @@ condor_submit 01_filtlong.sub
 repeat for 02,03,04 and 05.
 
 ## Next steps
-This workflow will create large files. I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
+This workflow will create large files, such as genome alignment files (.sorted.bam). I recommend using Globus.org to transfer files to your ResearchDrive or to your personal endpoint.
 For instructions, please visit: https://chtc.cs.wisc.edu/uw-research-computing/globus
 
 ## Importing to Geneious for SNP Identification
