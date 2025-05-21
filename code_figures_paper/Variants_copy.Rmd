@@ -1,0 +1,1216 @@
+---
+title: "Variant Calling MRSA"
+author: "Patricia Tran"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, out.width="100%"}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Data analysis
+
+```{r, out.width="100%"}
+
+setwd("~/OneDrive - UW-Madison/BioinformaticsJob/WorkProjects/Dept-of-Bacteriology/Mo_Lab/Mo_comparison_MRSA/22July2024_Variant_Table/")
+library(tidyverse)
+library(data.table)
+
+MRSA_variants <- as.data.frame(matrix(ncol=16))
+colnames(MRSA_variants) <- c("Name","Document Name","Type","Minimum","Maximum","Length","Change","Coverage","Polymorphism Type","Variant Frequency","Variant.P-Value","Amino Acid Change","CDS Codon Number","CDS Position","Codon Change","Protein Effect")
+
+file_list <- list.files("~/Downloads/Variant_results_all/With_Types_with_Codon_Positions/",full.names = TRUE)
+data <- list()
+
+for (i in 1:length(file_list)){
+  data[[i]] <- read.table(file_list[i], sep="\t", header=TRUE)
+}
+
+MRSA_variants <- dplyr::bind_rows(data)
+
+MRSA_variants <- MRSA_variants %>% filter(!is.na(Document.Name))
+
+# Merge all of them into 1 table:
+
+# Clean up table:
+MRSA_variants <- MRSA_variants %>% separate(Document.Name, into = c("Sample","Reference"), sep = "_vs_",remove =  FALSE)
+
+MRSA_variants$Sample <- str_replace(MRSA_variants$Sample, pattern = "Variants: ", replacement = "")
+MRSA_variants$Reference <- str_replace(MRSA_variants$Reference, pattern = ".sorted.*", replacement = " P0")
+# Split Sample into Generation and Sample:
+# Rename _P for -P
+MRSA_variants$Sample <- str_replace(MRSA_variants$Sample, pattern="_P", replacement = "-P")
+
+MRSA_variants <- MRSA_variants %>% separate(Sample, into=c("Generation","Sample"), sep="_", remove=TRUE)
+
+MRSA_variants$Phage_treatment <- ifelse(grepl("evo2", MRSA_variants$Sample), yes="evo2",no="Staph1N")
+# Then if contains NoPhage --> Phage_treatment = "NoPhage"
+
+MRSA_variants$Phage_treatment <- ifelse(grepl("NoPhage", MRSA_variants$Document.Name), yes="No Phage", no=MRSA_variants$Phage_treatment)
+
+MRSA_variants$Generation <- ifelse(grepl("NoPhage", MRSA_variants$Document.Name),
+                                   yes=str_replace(MRSA_variants$Sample, pattern=".*-P",""),
+                                   no=MRSA_variants$Generation)
+
+MRSA_variants$Generation <- ifelse(grepl("Gen", MRSA_variants$Generation),
+                                   yes=MRSA_variants$Generation,
+                                   no=paste0("Gen",MRSA_variants$Generation))
+
+
+MRSA_variants$Replicate <- str_replace(MRSA_variants$Sample, pattern=".*evo2", replacement="")
+MRSA_variants$Replicate <- str_replace(MRSA_variants$Replicate, pattern=".*sin", replacement="")
+MRSA_variants$Replicate <- str_replace(MRSA_variants$Replicate, pattern=".*-P1", replacement="")
+MRSA_variants$Replicate <- str_replace(MRSA_variants$Replicate, pattern=".*-P2", replacement="")
+
+MRSA_variants$Generation <- str_replace(MRSA_variants$Generation, "A","")
+MRSA_variants$Generation <- str_replace(MRSA_variants$Generation, "B","")
+MRSA_variants$Generation <- str_replace(MRSA_variants$Generation, "C","")
+
+
+MRSA_variants$Replicate <- factor(MRSA_variants$Replicate, levels=c("A","B","C"))
+
+colnames(MRSA_variants)
+
+#MRSA_variants <- MRSA_variants %>% filter(!is.na(`Track Name`))
+
+# Summarize information:
+MRSA_variants %>% filter(Type == "Polymorphism") %>%
+  group_by(Generation, Sample, Reference, Phage_treatment, Replicate) %>% 
+  tally()
+
+# Plot general data:
+library(ggrepel)
+
+MRSA_variants %>% filter(Type == "Polymorphism") %>%
+  group_by(Generation, Sample, Reference, Phage_treatment, Replicate) %>% 
+  tally() %>%
+  ggplot(aes(x=Generation, y=n, col=Phage_treatment, shape=Replicate))+
+  geom_point(alpha=0.75, size=4)+
+  facet_wrap(Reference+Phage_treatment~., scales = "free_x", ncol=3)+
+  geom_text_repel(aes(label=n),nudge_x = 0.3)+
+  theme_bw()+
+  ylab("Number of variants")+
+  xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face="bold"))
+
+# Note: no variants in MWS without phages.
+
+ggsave("figures/MRSA_Variation_count.pdf", width = 8, height = 4.5)
+
+
+```
+
+# Trying out some data visualization:
+
+
+```{r, out.width="100%"}
+MRSA_variants %>% 
+  filter(Type == "Polymorphism") %>%
+  group_by(Generation, Reference, Sample, Phage_treatment, Replicate, Minimum, Polymorphism.Type) %>% tally() %>% arrange(desc(n)) %>%
+  ggplot(aes(x=Minimum, y=Sample, col=Polymorphism.Type))+
+  geom_point(alpha=0.5)+
+  facet_wrap(Reference+Generation~., 
+             scales="free_y",
+             ncol = 2)+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face="bold"))+
+  xlab("Position along genome (bp)")
+
+ggsave("figures/MRSA_Variation_along_genomes.pdf", width = 8, height = 4.5)
+
+
+MRSA_variants %>% 
+  filter(Type == "Polymorphism") %>%
+  group_by(Generation, Reference, Sample, Phage_treatment, Replicate, Minimum, Polymorphism.Type) %>% tally() %>%
+  spread(Generation, n) %>%
+  mutate(Gen1 = ifelse(is.na(Gen1),0,Gen1)) %>%
+  mutate(GainedAfterGen2 = Gen2-Gen1) %>%
+  gather(Generation, n, Gen1:GainedAfterGen2) %>%
+  mutate(Generation = factor(Generation, levels=c("Gen1","Gen2","GainedAfterGen2"))) %>%
+  filter(n!=0) %>%
+  ggplot(aes(x=Minimum, y=Sample, col=Polymorphism.Type))+
+  geom_point(alpha=0.5)+
+  facet_wrap(Reference+Generation~., 
+             scales="free_y",
+             ncol = 3)+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face="bold"))+
+  xlab("Position along genome (bp)")
+
+
+ggsave("figures/MRSA_Variation_along_genomes_and_diff.pdf", width = 8, height = 4.5)
+
+
+test <- MRSA_variants %>% 
+  filter(Type == "Polymorphism") %>%
+  group_by(Generation, Reference, Sample, Phage_treatment, Replicate, Minimum, Maximum, Polymorphism.Type, Protein.Effect) %>% tally() %>% arrange(desc(n))
+
+MRSA_variants %>% 
+  filter(Type == "Polymorphism") %>%
+  group_by(Generation, Reference, Sample, Phage_treatment, Replicate, Minimum, Polymorphism.Type, Protein.Effect) %>% tally() %>% arrange(desc(n)) %>%
+  ggplot(aes(x=Minimum, y=Sample, col=Protein.Effect))+
+  geom_point(alpha=0.5)+
+  facet_wrap(Reference+Generation~., 
+             scales="free_y",
+             ncol = 2)+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face="bold"))+
+  xlab("Position along genome (bp)")
+
+ggsave("figures/MRSA_Variation_along_genomes_types.pdf", width = 8, height = 4.5)
+
+
+```
+
+This figure shows the number of variants for each samples vs each genome. Note that the start (position 1) does not necessarily mean it's the same position 1 for all 3 strains.
+
+# Save output:
+
+```{r}
+write.table(MRSA_variants, "output_tables/MRSA_variants.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+```
+
+# Combine the GFF files & BLAST results
+
+Here, we combine the GFF files generated with Prodigal, with the Top BLAST hits results.
+The final table, saved in the "output_table" folder, is a GFF file that contains information about the CDS locus named (matched by the bp position), and the top BLASTp hit.
+
+## MRSA252 
+
+```{r}
+MRSA252_gff <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_252_P0/252_P0_normal.gff", sep="\t")
+MRSA252_proteins_headers <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_252_P0/252_P0.headers.txt", sep="\t")
+names(MRSA252_proteins_headers) <- c("faa_ID","start","end","direction","attribute")
+names(MRSA252_gff) <- c("contig","software","feature_type","start","end","score","strand","frame","attribute")
+
+MRSA252_gff_full <- full_join(MRSA252_gff, MRSA252_proteins_headers, by=c("start"="start","end"="end"))
+# Add the galaxy results for top BLAST hit:
+
+MRSA252_blastp <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_252_P0/Galaxy13-[Select_on_data_10_MRSA252_Annotations_Proteins].tabular", sep="\t", quote="")
+names(MRSA252_blastp) <- c("faa_ID","blastp_top_hit")
+nrow(MRSA252_blastp) 
+
+
+MRSA252_gff_full <- full_join(MRSA252_gff_full, MRSA252_blastp, by="faa_ID")
+
+# How many of these do not have a BLAST hit (i.e are hypothetical)
+MRSA252_gff_full %>% filter(is.na(blastp_top_hit)) %>% nrow() / nrow(MRSA252_gff_full)
+MRSA252_gff_full %>% filter(!is.na(blastp_top_hit)) %>% nrow() / nrow(MRSA252_gff_full)
+
+
+# Save output:
+write.table(MRSA252_gff_full, "output_tables/MRSA252_gff_full.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+```
+
+## LacFitz
+
+```{r}
+LF_gff <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_Lac-Fitz_P0/LF_P0_normal.gff", sep="\t")
+LF_proteins_headers <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_Lac-Fitz_P0/LF_P0.headers.txt", sep="\t")
+names(LF_proteins_headers) <- c("faa_ID","start","end","direction","attribute")
+names(LF_gff) <- c("contig","software","feature_type","start","end","score","strand","frame","attribute")
+
+LF_gff_full <- full_join(LF_gff, LF_proteins_headers, by=c("start"="start","end"="end"))
+# Add the galaxy results for top BLAST hit:
+
+LF_blastp <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_Lac-Fitz_P0/Galaxy11-[Select_on_data_8_LacFitz_Annotations_Proteins].tabular", sep="\t", quote = "")
+names(LF_blastp) <- c("faa_ID","blastp_top_hit")
+nrow(LF_blastp)
+
+
+LF_gff_full <- left_join(LF_gff_full , LF_blastp, by="faa_ID")
+
+
+# How many of these do not have a BLAST hit (i.e are hypothetical)
+LF_gff_full %>% filter(is.na(blastp_top_hit)) %>% nrow() / nrow(LF_gff_full)
+LF_gff_full %>% filter(!is.na(blastp_top_hit)) %>% nrow() / nrow(LF_gff_full)
+
+
+# Save output:
+write.table(LF_gff_full, "output_tables/LF_gff_full.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+```
+
+## MW2
+
+```{r}
+MW2_gff <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_MW2_P0/MW2_P0_normal.gff", sep="\t")
+MW2_proteins_headers <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_MW2_P0/MW2_P0_header.txt", sep="\t")
+names(MW2_proteins_headers) <- c("faa_ID","start","end","direction","attribute")
+names(MW2_gff) <- c("contig","software","feature_type","start","end","score","strand","frame","attribute")
+
+MW2_gff_full <- full_join(MW2_gff, MW2_proteins_headers, by=c("start"="start","end"="end"))
+# Add the galaxy results for top BLAST hit:
+
+MW2_blastp <- read.table("../04June2024_variants/P0_references_Prodigal_Annotations/MRSA_MW2_P0/Galaxy12-[Select_on_data_9_MW2_Annotations_Proteins].tabular", sep="\t", quote="")
+names(MW2_blastp) <- c("faa_ID","blastp_top_hit")
+nrow(MW2_blastp)
+
+MW2_gff_full <- left_join(MW2_gff_full , MW2_blastp, by="faa_ID")
+
+# How many of these do not have a BLAST hit (i.e are hypothetical)
+MW2_gff_full %>% filter(is.na(blastp_top_hit)) %>% nrow() / nrow(MW2_gff_full)
+MW2_gff_full %>% filter(!is.na(blastp_top_hit)) %>% nrow() / nrow(MW2_gff_full)
+
+# Save output:
+write.table(MW2_gff_full, "output_tables/MW2_gff_full.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+```
+
+# Determine what is the best BLASTp hit for each Variation:
+
+We currently have a table with all the MRSA variants positions (`MRSA_variants`), but they don't contain information about whether they fall into a encoded gene or not. The "full GFF table" that we generated in the previous section contains this.
+
+In this section, we loop through all the variants to identify the encoded gene into which it falls. If it falls into a gene, we report the loci (FAA_ID) in a column called `Falls_into`, and we report back the Top Blast HIT for that FAA_ID. 
+
+In some cases, the variant falls into a FAA_ID, but there were no Blast Top Hit. This means that it's a hypothetical protein with unknown function.
+
+The column `CDS_BLASTp` and	`Falls_into` will be empty (blank) when the variant does not fall into any ORFs.
+
+Each of these sections below also report what % of the bacterial genomes are hypothetical (no top blastp hit), vs non-hypothetical (has a blast top hit). On average about ~20% of the genome is hypothetical.
+
+## BLASTp parameters:
+
+Ran on June 4th, 2024 via usegalaxy.eu
+Protein BLAST database: swissprot_2023-06-28
+blastp - Traditional BLASTP to compare a protein query to a protein database
+Set expectation value cutoff: 0.001
+Output format: 5
+Advanced Options: basic
+
+
+## 252 
+```{r}
+Variations_252 <- MRSA_variants %>% filter(Type == "Polymorphism") %>% filter(Reference == "MRSA252 P0")
+Variations_252$CDS_BLASTp <- ""
+Variations_252$Falls_into <- ""
+
+for (i in 1:nrow(Variations_252)){
+  #Variations_252$Minimum[i]
+  for (j in 1:nrow(MRSA252_gff_full)){
+    if (between(x = Variations_252$Minimum[i], lower = MRSA252_gff_full$start[j], upper = MRSA252_gff_full$end[j])){
+      #print(i)
+      #print(j)
+      #Variations_252$Minimum[i]
+      #MRSA252_gff_full[j,]
+      #print(paste("the bp ",Variations_252$Minimum[i],"is between positions:",MRSA252_gff_full$start[j],"and",MRSA252_gff_full$end[j],". The CDS id is: ", MRSA252_gff_full$faa_ID[j]))
+      
+      #MRSA252_gff_full$blastp_top_hit[j]
+      Variations_252$CDS_BLASTp[i] <- MRSA252_gff_full$blastp_top_hit[j]
+      Variations_252$Falls_into[i] <- MRSA252_gff_full$faa_ID[j]
+    }
+    else {
+      
+    }
+  }
+}
+
+write.table(Variations_252 %>% arrange(Minimum), "output_tables/Variations_252.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+
+```
+
+## LacFitz
+
+```{r}
+unique(MRSA_variants$Reference)
+Variations_LF <- MRSA_variants %>% filter(Type == "Polymorphism") %>% filter(Reference == "MRSA_Lac-Fitz P0")
+Variations_LF$CDS_BLASTp <- ""
+Variations_LF$Falls_into <- ""
+
+for (i in 1:nrow(Variations_LF)){
+  #Variations_252$Minimum[i]
+  for (j in 1:nrow(LF_gff_full)){
+    if (between(x = Variations_LF$Minimum[i], 
+                lower = LF_gff_full$start[j], 
+                upper = LF_gff_full$end[j])){
+      Variations_LF$CDS_BLASTp[i] <- LF_gff_full$blastp_top_hit[j]
+      Variations_LF$Falls_into[i] <- LF_gff_full$faa_ID[j]
+    }
+    else {
+      
+    }
+  }
+}
+
+write.table(Variations_LF%>% arrange(Minimum), "output_tables/Variations_LF.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+
+```
+
+
+## MW2
+
+```{r}
+unique(MRSA_variants$Reference)
+Variations_MW2 <- MRSA_variants %>% filter(Type == "Polymorphism") %>% filter(Reference == "MRSA_MW2 P0")
+
+Variations_MW2$CDS_BLASTp <- ""
+Variations_MW2$Falls_into <- ""
+
+for (i in 1:nrow(Variations_MW2)){
+  #Variations_252$Minimum[i]
+  for (j in 1:nrow(MW2_gff_full)){
+    if (between(x = Variations_MW2$Minimum[i], 
+                lower = MW2_gff_full$start[j], 
+                upper = MW2_gff_full$end[j])){
+      #print(j)
+      Variations_MW2$CDS_BLASTp[i] <- MW2_gff_full$blastp_top_hit[j]
+      Variations_MW2$Falls_into[i] <- MW2_gff_full$faa_ID[j]
+    }
+    else {
+      
+    }
+  }
+}
+
+write.table(Variations_MW2%>% arrange(Minimum), "output_tables/Variations_MW2.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+
+```
+
+# More data visualization
+
+## Organize deletion chunks
+
+```{r, out.width="100%"}
+Variations_all <- rbind(Variations_252, Variations_LF)
+Variations_all <- rbind(Variations_all, Variations_MW2)
+Variations_all <- Variations_all %>% mutate(Falls_into = ifelse(Falls_into=="", yes="Not in an CDS", no=Falls_into))
+Variations_all$Replicate <- factor(Variations_all$Replicate, levels=c("C","B","A"))
+
+length(unique(Variations_all$Document.Name))
+
+
+colnames(Variations_all)
+dim(Variations_all)
+
+Variations_all <- Variations_all %>% arrange(Reference, Phage_treatment, Replicate, Minimum, Generation)
+
+
+write.table(Variations_all, "output_tables/Variations_all.tsv",
+            sep="\t",quote = FALSE, row.names = FALSE)
+
+
+## RECOUNT CHUNKS:
+
+Variations_all_recount <- as.data.frame(matrix(nrow=1, ncol=26))
+colnames(Variations_all_recount) <- colnames(Variations_all)
+
+Variations_all_recount_2 <- as.data.frame(matrix(nrow=1, ncol=26))
+colnames(Variations_all_recount_2) <- colnames(Variations_all)
+
+# for each sample, loop through the each row, if the minimum is the previous row + 1, and it's a deletion, count as 1 deletion only.
+
+#Variations_all %>% filter(Document.Name == unique(Variations_all$Document.Name)[i]) %>% filter(Polymorphism.Type %in% c("Deletion", "Deletion (tandem repeat)"))
+
+#no_deletion <- Variations_all %>% filter(Document.Name == unique(Variations_all$Document.Name)[i]) %>%  filter(!Polymorphism.Type %in% c("Deletion", "Deletion (tandem repeat)"))
+
+#dim(no_deletion)
+
+#unique(Variations_all$Document.Name)[2,6,7,31,32,33,34,35,36,39]
+
+for (i in 1:length(unique(Variations_all$Document.Name))){
+  print(i)
+  variation_subset <- Variations_all %>% 
+    filter(Document.Name == unique(Variations_all$Document.Name)[i]) %>% 
+    filter(Polymorphism.Type %in% c("Deletion", "Deletion (tandem repeat)"))
+  
+  #print(paste("nrow is: ", nrow(variation_subset)))
+  
+  if (nrow(variation_subset) > 1) {
+    #print(i)
+    #print(variation_subset)
+    deletion_length <- variation_subset$Length[1]
+    #print(deletion_length)
+    recount_to_add <- variation_subset[1,]
+    colnames(recount_to_add) <- colnames(Variations_all)
+    for (j in 2:nrow(variation_subset)){
+      if(variation_subset$Minimum[j] == (variation_subset$Maximum[j-1]+1)){
+        deletion_length = deletion_length + variation_subset$Length[j]
+        #recount_to_add <- variation_subset[j,]
+      } 
+      else {
+       #print("this position is not part of a deletion chunk")
+        Variations_all_recount <- rbind(Variations_all_recount, variation_subset[j,])
+      }
+    }
+    print(paste0("deletion length", deletion_length))
+    recount_to_add$Length <- deletion_length
+    recount_to_add$Maximum <- recount_to_add$Minimum + deletion_length - 1
+    recount_to_add$Polymorphism.Type <- "Deletion chunk"
+    #print(recount_to_add)
+    #print(deletion_length)
+    Variations_all_recount_2 <- rbind(Variations_all_recount_2, recount_to_add)
+  } 
+  else{
+    Variations_all_recount <- rbind(Variations_all_recount, Variations_all %>% filter(Document.Name == unique(Variations_all$Document.Name)[i]))
+  }
+}
+
+head(Variations_all_recount)
+
+# Merge it all
+Variations_combined <- rbind(Variations_all_recount, Variations_all_recount_2) %>% filter(!is.na(Name))
+
+nrow(Variations_combined)
+#Variations_combined <- rbind(Variations_combined, no_deletion)
+
+Variations_combined <- Variations_combined %>% distinct()
+
+nrow(Variations_combined)
+
+
+
+write.table(Variations_combined, "output_tables/Variations_all_combined_recount.tsv",
+            sep="\t",quote = FALSE, row.names = FALSE)
+
+Variations_Per_CDS <- Variations_combined %>% group_by(Falls_into, CDS_BLASTp, Reference, Generation, Sample, Phage_treatment, Replicate, Polymorphism.Type, Minimum, Maximum, Length, Protein.Effect, Amino.Acid.Change, Codon.Change) %>% tally() 
+
+#Variations_Per_CDS$short_name
+
+
+write.table(Variations_Per_CDS, "output_tables/Variations_per_CDS_all.tsv",
+            sep="\t",quote = FALSE, row.names = FALSE)
+
+### IMPORTANT this file needs to be updated: ###s
+
+shortnames <- read.table("../04June2024_variants/contigs_shortname.txt", sep="\t", quote="", header=TRUE)
+#Variations_all$Replicate <- factor(Variations_all$Replicate, levels=c("C","B","A"))
+
+Variations_Per_CDS <- Variations_Per_CDS %>% mutate(Protein.Effect = ifelse(Protein.Effect=="",
+                                                                    "Not in CDS",
+                                                                    Protein.Effect))
+
+variants_colors <- c("Deletion"="#FF00FC", 
+                                "Deletion (tandem repeat)"="#B0B901",
+                                "Deletion chunk" = "#33A02C",
+                                "SNP (transition)"="#943FE9",
+                                "SNP (transversion)" ="#0000FF")
+
+unique(Variations_Per_CDS$Protein.Effect)
+
+shapes_custom <- c("Not in CDS"=3, #cross
+                   "Deletion"=8, #star
+                   "Frame Shift"=7, #diamond
+                   "None"=1, #open circle
+                   "Substitution"=2, #triangle
+                   "Truncation"=10) #circle with an X
+
+Variations_all <- 
+  Variations_Per_CDS %>% left_join(shortnames) %>% group_by(Falls_into, ShortName, Reference, Generation, Replicate, Polymorphism.Type, Phage_treatment, Minimum, Maximum, Protein.Effect, Amino.Acid.Change, Codon.Change) %>% tally() %>%
+  mutate(Replicate = factor(Replicate, levels=c("C","B","A"))) %>%
+  rename(Variants = n) 
+
+
+Variations_all %>%
+  group_by(ShortName, Reference, Replicate, Polymorphism.Type, Phage_treatment, Generation, Protein.Effect) %>% tally() %>%
+  #filter(Generation == "Gen2") %>%
+  ggplot(aes(x=ShortName, 
+             y=Replicate, 
+             col=Polymorphism.Type, 
+             size=n,
+             shape=Protein.Effect))+
+  geom_point()+
+  facet_grid(rows = vars(Phage_treatment, Generation), 
+             cols= vars(Reference), 
+             scales = "free", 
+             switch = "y")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=90, hjust=1, vjust=0.5),
+        strip.background = element_blank(),
+        strip.text = element_text(face="bold"),
+        strip.text.y.right = element_text(angle=90),
+        strip.placement = "outside")+
+  ylab("Treatment, generation, and replicate")+
+  xlab("Gene name")+
+  scale_color_manual(values=variants_colors)+
+  scale_shape_manual(values=shapes_custom, na.value=16)
+
+ggsave("figures/Variants_per_CDS_with_protein_effect.pdf", width = 8, height = 7)
+
+Variations_all$Phage_treatment <- factor(Variations_all$Phage_treatment)
+Variations_all$Replicate <- factor(Variations_all$Replicate)
+
+
+
+PanelB <- Variations_all %>%
+  #distinct() %>%
+  #right_join(Variations_combined) %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2"))) %>%
+  mutate(Replicate = fct_relevel(Replicate, c("C","B","A"))) %>%
+  #filter(Phage_treatment != "Staph1N") %>%
+  filter(Generation != "Gen1") %>%
+  ggplot(aes(x=Minimum, 
+             y=Replicate, 
+             col=Polymorphism.Type,
+             shape=Protein.Effect,
+             label = ShortName))+
+  geom_point(alpha=0.7)+
+#  geom_text_repel()+
+  facet_grid(rows = vars(Phage_treatment, Generation), 
+             cols= vars(Reference), 
+             scales = "free", 
+             switch = "y")+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.placement = "outside",
+        strip.text = element_text(face="bold"),
+        legend.position = "bottom")+
+  xlab("Position along genome (bp)")+
+  ylab("Treatment, generation, and replicate") +
+  scale_color_manual(values=variants_colors)+
+    scale_shape_manual(values=shapes_custom, na.value=16)
+
+
+PanelB
+
+ggsave("figures/MRSA_Variation_along_genomes_recount_noGen1.pdf",
+       width = 15, 
+       height = 6)
+
+
+labels_plot <- Variations_all %>% select(-Minimum, -Maximum)  %>%
+  #filter(Phage_treatment != "Staph1N") %>% select(Falls_into, ShortName2) %>% 
+  distinct() %>%
+  full_join(Variations_combined) %>%
+  #filter(Phage_treatment != "Staph1N") %>%
+  filter(Generation != "Gen1") %>%
+  ungroup() %>%
+  select(Reference, Falls_into, Minimum, ShortName, Polymorphism.Type) %>%
+  distinct()
+
+# If Falls_into says "no CDS" then label as no CDS:
+labels_plot <- labels_plot %>% mutate(ShortName = ifelse(Falls_into == "Not in an CDS", yes="Not in CDS", no=ShortName))
+labels_plot <- labels_plot %>% mutate(ShortName = ifelse(is.na(ShortName), yes="Hypothetical Protein", no=ShortName))
+
+
+#labels_plot$Phage_treatment <- ""
+#labels_plot$Generation <- ""
+
+
+PanelA <- ggplot(labels_plot, aes(x=Minimum, 
+                        y=1, 
+                        label=ShortName,
+                        col=Polymorphism.Type))+
+  geom_point(pch=21)+
+  facet_grid(#rows = vars(Phage_treatment, Generation),
+             cols = vars(Reference),
+             scales="free")+
+  geom_text_repel(angle=90, 
+                  hjust=0, 
+                  nudge_y = 0.2, 
+                  size=2, 
+                  max.overlaps = 30)+
+  ylim(c(0,5))+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.placement = "outside",
+        strip.text = element_text(face="bold"),
+        legend.position = "none")+
+  ylab("Gene name")+
+  xlab("Position along genome (bp)")+
+  scale_color_manual(values=variants_colors)+
+    scale_shape_manual(values=shapes_custom, na.value=16)
+
+
+PanelA
+
+#Empty_Plot <- ""
+
+library(ggpubr)
+
+top <- ggarrange(NULL, PanelA, NULL, widths = c(0.05, 0.9, 0.06), labels=c("A","",""), nrow=1)
+top
+
+ggarrange(top, 
+          ggarrange(PanelB,NULL, widths = c(1, 0.06)),
+         nrow=2,
+          heights = c(0.7,1), 
+          labels=c("","B"),
+common.legend = TRUE)
+
+ggsave("figures/MRSA_Variation_along_genomes_recount_both_panels_noGen1.pdf", 
+       width = 10, 
+       height = 10)
+
+ggplot(labels_plot, aes(x=Minimum, 
+                        y=1, 
+                        label=ShortName,
+                        col=Polymorphism.Type))+
+  geom_point(pch=21)+
+  facet_grid(#rows = vars(Phage_treatment, Generation),
+             rows = vars(Reference),
+             scales="free",
+             switch="y")+
+  geom_text_repel(angle=90, 
+                  hjust=0, 
+                  nudge_y = 0.5, 
+                  #nudge_x = 0.1,
+                  size=3, 
+                  max.overlaps = 30)+
+  ylim(c(0,5))+
+  theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.placement = "outside",
+        strip.text = element_text(face="bold"),
+        legend.position = "none",
+        panel.grid.major.y = element_blank(),
+        panel.border = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank())+
+  geom_hline(yintercept = 1)+
+  ylab("Genome")+
+  xlab("Position along genome (bp)")+
+  scale_color_manual(values=variants_colors)
+
+ggsave(filename = "figures/Genome_linear_names_noGen1.pdf", width = 11, height = 6
+       )
+
+Variations_table <- Variations_all %>% select(Falls_into, ShortName) %>% 
+  distinct() %>%
+  right_join(Variations_combined)
+
+Variations_table <- Variations_table %>% mutate(Category = ifelse(!is.na(ShortName), yes="Known gene", no="Not in CDS or hypothetical"))
+
+Variations_table %>% group_by(Category, Reference, Generation, Phage_treatment, Replicate, Polymorphism.Type) %>% tally() %>%
+  mutate(Phage_treatment = factor(Phage_treatment)) %>% 
+  mutate(Phage_treatment = fct_relevel(Phage_treatment,c("No Phage","evo2","Staph1N"))) %>%
+  ggplot(aes(x=Category, y=n, fill=Polymorphism.Type, shape=Replicate))+
+  geom_col() +
+  facet_grid(rows = vars(Phage_treatment, Generation),
+             cols = vars(Reference),
+             scales="free",switch = "y")+
+   theme_bw()+
+  #ylab("Number of variants")+
+  #xlab("Phage treatment")+
+  theme(strip.background = element_blank(),
+        strip.placement = "outside",
+        strip.text = element_text(face="bold"),
+        axis.text.x = element_text(angle=90))+
+  ylab("Number of variants")+
+  scale_fill_manual(values=variants_colors)
+
+ggsave("figures/MRSA_Variation_summary_by_type.pdf", width = 8, height = 6)
+
+# This proksee overview figures contains information for BOTH generations
+proksee <- Variations_table %>% group_by(Minimum, ShortName, Reference, Falls_into, Polymorphism.Type) %>% tally() %>%
+  arrange(Reference, Minimum)
+
+write.table(proksee, "output_tables/table_for_proksee_annotations.tsv", sep="\t", row.names = FALSE)
+
+```
+
+
+# Meeting with Angel and My
+```{r, out.width="100%"}
+Variations_table$Phage_treatment <- factor(Variations_table$Phage_treatment)
+
+test <- Variations_table %>% filter(Generation == "Gen2") %>%
+  filter(Falls_into != "Not in an CDS") %>%
+  group_by(Reference, Phage_treatment, Falls_into, ShortName, Minimum) %>%
+  tally() %>%
+  mutate(ShortName = ifelse(is.na(ShortName), yes="Hypothetical protein", no=ShortName)) %>%
+  mutate(Phage_treatment = fct_relevel(as.factor(Phage_treatment), 
+                                       c("evo2","Staph1N","No Phage")))  %>%
+  mutate(Reference = str_replace(Reference, " P0",""))
+
+test$Reference <- factor(test$Reference, levels = c("MRSA_Lac-Fitz","MRSA252","MRSA_MW2"))
+
+levels(test$Reference)
+  
+test %>% ggplot(aes(x=Minimum, y= Phage_treatment, label=ShortName, fill=factor(n)))+
+  geom_point(size=3, pch=21)+
+  facet_grid(cols=vars(Reference))+
+  geom_text_repel(angle=0,
+                  hjust=0, 
+                  nudge_y = 0.3, 
+                  #nudge_x = 0.1,
+                  size=3, 
+                  max.overlaps = 20)+
+  theme_bw()+
+  theme(panel.grid.minor= element_blank(),
+        strip.background = element_blank(),
+        axis.title = element_text(face="bold", size=12),
+        axis.text = element_text(size=11),
+        #panel.border = element_blank(),
+        strip.text = element_text(face="bold", size=12))+
+  ylab("Phage treatment")+
+  xlab("Position along the genome (bp)")+
+  scale_fill_manual(values=c("1"="lightblue3",
+                             "2"="orange1",
+                             "3"="red3"),
+                    name="Occurance count\namong replicates")+
+ labs(title="Generation 2",
+      caption = "Variations falling into non-CDS regions not shown")
+
+ggsave("figures/gen2_variations_paper.pdf", width = 15, height = 4.5)
+
+```
+
+
+# Pathways: KEGG and EGGNOG
+
+```{r, out.width="100%"}
+
+koala_252 <- read.table("../09July2024_PathwayAnnotations/KEGG/252_Detailed_KOALABlast.txt", sep="\t", quote="") %>%
+  select(V1,V2,V3) %>%
+  rename("Falls_into"="V1",
+         "KO"="V2",
+         "KOdescription"="V3")
+
+koala_LF <- read.table("../09July2024_PathwayAnnotations/KEGG/LacFitz_Detailed_KOALABlast.txt", sep="\t", quote = "") %>%
+  select(V1,V2,V3) %>%
+  rename("Falls_into"="V1",
+         "KO"="V2",
+         "KOdescription"="V3")
+
+
+koala_MW2 <- read.table("../09July2024_PathwayAnnotations/KEGG/MW2_Detailed_KOALABlast.txt", sep="\t", quote = "") %>%
+  select(V1,V2,V3) %>%
+  rename("Falls_into"="V1",
+         "KO"="V2",
+         "KOdescription"="V3")
+
+koala <- rbind(koala_252, koala_LF)
+koala <-  rbind(koala, koala_MW2)
+
+Variations_table_with_KEGG<-left_join(Variations_table, koala)
+
+write.table(Variations_table_with_KEGG %>% filter(Generation == "Gen2") %>% ungroup %>% select(-Generation),
+            "../09July2024_PathwayAnnotations/Variations_all_with_KEGG_Gen2_25July2024.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+
+#Variations_table_with_KEGG <- Variations_table_with_KEGG %>% select(Falls_into, KO, KOdescription) %>% distinct()
+
+## Match with EGGNOG tables:
+eggnog252 <- read.table("../09July2024_PathwayAnnotations/EGGNOG-Mapper/252_P0_out/252_P0_out.emapper.annotations",sep="\t", quote="")
+colnames(eggnog252) <- c("query","seed_ortholog","evalue","score",
+                        "eggNOG_OGs","max_annot_lvl","COG_category","Description","Preferred_name",	"GOs","EC","KEGG_ko","KEGG_Pathway","KEGG_Module","KEGG_Reaction","KEGG_rclass","BRITE","KEGG_TC","CAZy","BiGG_Reaction","PFAMs")
+
+
+eggnogMW2<- read.table("../09July2024_PathwayAnnotations/EGGNOG-Mapper/MW2_P0_out/MW2_P0_out.emapper.annotations",sep="\t", quote="")
+colnames(eggnogMW2) <- c("query","seed_ortholog","evalue","score",
+                        "eggNOG_OGs","max_annot_lvl","COG_category","Description","Preferred_name",	"GOs","EC","KEGG_ko","KEGG_Pathway","KEGG_Module","KEGG_Reaction","KEGG_rclass","BRITE","KEGG_TC","CAZy","BiGG_Reaction","PFAMs")
+
+eggnogLF <- read.table("../09July2024_PathwayAnnotations/EGGNOG-Mapper/LF_P0_out/LF_P0_out.emapper.annotations",sep="\t", quote="")
+colnames(eggnogLF) <- c("query","seed_ortholog","evalue","score",
+                        "eggNOG_OGs","max_annot_lvl","COG_category","Description","Preferred_name",	"GOs","EC","KEGG_ko","KEGG_Pathway","KEGG_Module","KEGG_Reaction","KEGG_rclass","BRITE","KEGG_TC","CAZy","BiGG_Reaction","PFAMs")
+
+
+eggnog <- rbind(eggnog252, eggnogLF)
+eggnog <- rbind(eggnog, eggnogMW2)
+
+Variations_EGGNOG_and_KO_Combined <- left_join(Variations_table_with_KEGG, eggnog, by=c("Falls_into"="query"))
+
+cog_categories <- read.table("COG_categories.txt", sep="\t", quote = "")
+colnames(cog_categories) <- c("COG_category","COG_category_description")
+
+Variations_EGGNOG_and_KO_Combined <- left_join(Variations_EGGNOG_and_KO_Combined, cog_categories)
+
+Variations_EGGNOG_and_KO_Combined$COG_category
+cog_categories$COG_category
+
+write.table(Variations_EGGNOG_and_KO_Combined %>% filter(Generation == "Gen2") %>% ungroup %>% select(-Generation),
+            "output_tables/Variations_EGGNOG_KO_Table_Gen2_only_25July2024.tsv", 
+            sep="\t", 
+            row.names = FALSE,
+            quote=FALSE)
+
+Variations_Pathways_Gen2 <- Variations_EGGNOG_and_KO_Combined %>% filter(Generation == "Gen2") %>% ungroup %>% select(-Generation)
+
+library(ggthemes)
+
+data <- Variations_Pathways_Gen2 %>% group_by(Reference, Phage_treatment, Replicate, COG_category_description) %>% tally() %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage", "Staph1N", "evo2")))
+
+data$Reference_f <- factor(data$Reference, levels=c("MRSA252 P0","MRSA_MW2 P0","MRSA_Lac-Fitz P0"))
+data$COG_category_description <- tolower(data$COG_category_description)
+
+data
+
+data %>%
+  ggplot(aes(x=Reference_f, 
+             y=n, 
+             fill=COG_category_description))+
+  geom_col(position="fill")+
+  facet_grid(.~Reference_f+Phage_treatment+Replicate, scales = "free")+
+  theme_par()+
+  theme(axis.text.x = element_text(angle=90),
+        strip.text = element_text(angle=90))+
+  ylab("relative proportion of COG variants")+
+  xlab("Sample")
+
+ggsave("figures/cog_categories.pdf", width = 16, height = 10)
+
+
+Variations_Pathways_Gen2 %>% group_by(Reference, Phage_treatment, Replicate, COG_category_description) %>% tally() %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage", "Staph1N", "evo2"))) %>%
+  ggplot(aes(x=factor(Reference, 
+                      levels=c("MRSA_Lac-Fitz P0", "MRSA252 P0", "MRSA_MW2 P0")), 
+             y=n, 
+             fill=COG_category_description))+
+  geom_col()+
+  facet_grid(.~Reference+Phage_treatment+Replicate, scales = "free")+
+  theme_par()+
+  theme(axis.text.x = element_text(angle=90))+
+  ylab("Number of COG variants")
+
+ggsave("figures/cog_categories_unstacked.pdf", width = 16, height = 10)
+
+```
+
+# Statistics to see if COG categories are enriched?
+
+```{r}
+Variations_EGGNOG_and_KO_Combined %>% 
+#  filter(Reference == "MRSA252 P0") %>%
+  group_by(Reference, Phage_treatment) %>% tally() %>%
+  ggplot(aes(x=factor(Phage_treatment, levels=c("No Phage","evo2","Staph1N")),
+             y=n))+
+  facet_wrap(Reference~.)+
+  geom_boxplot()+
+  xlab("Treatment")+
+  theme_bw()
+
+
+data_for_test2 <- Variations_EGGNOG_and_KO_Combined %>% group_by(Phage_treatment, Reference, Description, COG_category, Polymorphism.Type, Protein.Effect) %>% tally() %>% mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2")))
+
+data_for_stats <- Variations_EGGNOG_and_KO_Combined %>% group_by(Phage_treatment, Reference, Description, COG_category, Protein.Effect) %>% tally() %>% mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2")))
+
+my_comparisons <- list( c("evo2", "No Phage"), c("evo2", "Staph1N"), c("No Phage", "Staph1N") )
+
+unique(Variations_Pathways_Gen2$COG_category)
+
+boxplot_variations <- Variations_Pathways_Gen2 %>%
+  group_by(Phage_treatment, Reference, COG_category) %>% tally() %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2"))) %>%
+ggplot(aes(x=Phage_treatment, 
+             y=n, 
+             col=Reference))+
+  #geom_boxplot()+
+  geom_jitter(width=0.2)+
+  #geom_violin()+
+  facet_wrap(COG_category~., scales="free_y",labeller = label_wrap_gen())+
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  #stat_compare_means(label.y = 50)+     # Add global p-value
+  theme_bw()+
+  ylab("Number of variants with COG description")+
+  xlab("Phage treatment")+
+  scale_color_manual(values=c("#b55535",
+                             "#6835b5",
+                             "#419e52"))+
+  theme(legend.position = "bottom",
+        strip.text = element_text(size=6))
+
+
+boxplot_variations
+
+#ggsave(plot = boxplot_variations,
+#       filename = "figures/boxplot_COG_categories.pdf",
+#       width = 9,
+#       height = 8.5)
+
+Variations_Pathways_Gen2 %>%
+  group_by(Phage_treatment, COG_category_description) %>% tally() %>%
+  #spread(Phage_treatment, n) %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2"))) %>% arrange(COG_category_description) %>%
+  mutate(COG_category_description = tolower(COG_category_description)) %>%
+  ggplot(aes(x=Phage_treatment, y=COG_category_description, fill=n, label=n))+
+  geom_tile(color="white")+
+  geom_text()+
+  theme_bw()+
+  theme(panel.grid = element_blank())+
+  xlab("Treatment")+
+  scale_fill_viridis_c(option = "magma")
+
+ggsave("figures/heatmap_comparison_COG_category.pdf",
+       width = 9,
+       height = 8.5)
+
+
+boxplot_variations_no_color <- Variations_Pathways_Gen2 %>%
+  group_by(Phage_treatment, Reference, Replicate, COG_category_description) %>% tally() %>%
+  mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2"))) %>%
+ggplot(aes(x=Phage_treatment, 
+             y=n))+
+  #geom_boxplot()+
+  geom_point()+
+  facet_wrap(COG_category_description~., 
+             scales="free_y",
+             labeller = label_wrap_gen())+
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  #stat_compare_means(label.y = 50)+     # Add global p-value
+  theme_bw()+
+  ylab("Number of variants with COG description")+
+  xlab("Phage treatment")+
+  #scale_color_manual(values=c("#b55535",
+  #                           "#6835b5",
+  #                           "#419e52"))+
+  theme(legend.position = "bottom",
+        strip.text = element_text(size=6))+
+  scale_fill_viridis_c(option = "magma")
+
+
+boxplot_variations_no_color
+
+ggsave(plot = boxplot_variations_no_color,
+       filename = "figures/boxplot_COG_categories_no_color.pdf",
+       width = 9,
+       height = 8.5)
+
+compare_groups_plot <- data_for_stats %>% 
+  ggplot(aes(x=Phage_treatment, 
+             y=n, 
+             col=Reference))+
+  geom_boxplot()+
+  #ßgeom_point()+
+  #facet_wrap(Reference~.)+
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  #stat_compare_means(label.y = 50)+     # Add global p-value
+  theme_bw()+
+  ylab("Number of variants with COG description")+
+  xlab("Phage treatment")+
+  scale_color_manual(values=c("#b55535",
+                             "#6835b5",
+                             "#419e52"))+
+  theme(legend.position = "bottom")
+
+compare_groups_plot
+
+data_for_stats %>% filter(COG_category == "M") %>%
+  ggplot(aes(x=Phage_treatment, 
+             y=n))+
+  geom_boxplot()+
+  #facet_wrap(Reference~.)+
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  #stat_compare_means(label.y = 50)+     # Add global p-value
+  theme_bw()+
+  ylab("Number of variants with COG description")+
+  xlab("Phage treatment")+
+  scale_color_manual(values=c("#b55535",
+                             "#6835b5",
+                             "#419e52"))+
+  theme(legend.position = "bottom")
+
+data_for_stats %>% filter(COG_category == "V") %>%
+  ggplot(aes(x=Phage_treatment, 
+             y=n))+
+  geom_boxplot()+
+  #facet_wrap(Reference~.)+
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  #stat_compare_means(label.y = 50)+     # Add global p-value
+  theme_bw()+
+  ylab("Number of variants with COG description")+
+  xlab("Phage treatment")+
+  scale_color_manual(values=c("#b55535",
+                             "#6835b5",
+                             "#419e52"))+
+  theme(legend.position = "bottom")
+
+#Stats underlying the plot:
+  
+compare_means(formula = n ~ Phage_treatment, 
+              data = data_for_stats, 
+              method = "wilcox.test", 
+              paired = FALSE,
+              group.by = NULL, ref.group = NULL)
+# Evo vs No Phage and No Phage vs Staph1N are signif, but not evo2 and Staph1N.
+
+bar_plots_protein_effect <- data_for_stats %>% filter(!is.na(Description))%>%
+                            ggplot(aes(x=Phage_treatment, 
+                              y=n,
+                              fill=Protein.Effect)) +
+  geom_col(position = "fill")+
+  theme_bw() +
+  scale_fill_manual(values = c("#c75850","#458c48","#455a8c","#89458c","#e3a539"
+                               ), 
+                    name="Protein effect")+
+  ylab("Types of protein effects \non SNPs variations")+
+  xlab("Phage treatment")
+
+
+bar_plots_protein_effect
+
+data_for_stats2 <- Variations_EGGNOG_and_KO_Combined %>% mutate(Protein.Effect = ifelse(Protein.Effect == "", yes="Not in CDS", no=Protein.Effect))
+data_for_stats2$Protein.Effect <- ifelse(is.na(data_for_stats2$Protein.Effect),"Not in CDS",data_for_stats2$Protein.Effect)
+
+library(ggalluvial)
+data_for_alluvial <- data_for_stats2 %>% group_by(Phage_treatment, Polymorphism.Type, Protein.Effect) %>% tally()
+
+is_alluvia_form(data_for_alluvial, axes = 1:3, silent = TRUE)
+
+data_for_alluvial <- data_for_alluvial %>% mutate(Phage_treatment = fct_relevel(Phage_treatment, c("No Phage","Staph1N","evo2")))
+
+ggplot(data_for_alluvial %>% arrange(Phage_treatment), 
+       aes(y=n, 
+           axis1=Phage_treatment, 
+           axis2= Polymorphism.Type, 
+           axis3=Protein.Effect)) +
+  geom_alluvium(aes(fill=Protein.Effect))+
+  geom_stratum(color = "black", linewidth = 0.5, fill=NA, width = 1/3)+
+  scale_x_discrete(limits = c("Phage treatment", "Polymorphism type", "Protein Effect"), 
+                   expand = c(.05, .05))+
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)),
+            reverse = TRUE)+
+  #scale_fill_brewer(type = "qual", palette = "Set2") +
+  geom_flow(stat = "alluvium", 
+            lode.guidance = "frontback",
+            color = "grey")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(size=8))+
+  ylab("Polymorphism type on genomic sequence\n and effect on proteins")+
+  scale_fill_manual(values = c("#c75850","#458c48","#455a8c","pink","#89458c","#e3a539"
+                               ), 
+                    name="Protein effect")
+
+ggsave("figures/alluvial_plot_S5.pdf", width = 8, height = 4.5)
+  
+
+number_of_mutations_plot <- data_for_stats %>% filter(!is.na(Description)) %>%
+  ggplot(aes(x=Phage_treatment, 
+                           y=n, 
+                           col=Protein.Effect))+
+  geom_point(size=3)+
+  theme_bw()+
+  ylab("Number of variants with COG descriptions")+
+  xlab("Phage Treatment")+
+  scale_color_manual(values = c("#c75850","#458c48","#455a8c","#89458c","#e3a539"
+                               ), 
+                    name="Protein effect")
+
+number_of_mutations_plot
+
+ggarrange(number_of_mutations_plot, bar_plots_protein_effect, compare_groups_plot,
+          nrow=1,
+          labels = c("a","b","c"))
+
+ggsave("figures/stats_plot.pdf", width = 11, height = 4.5)
+
+
+# data_for_stats %>% 
+# group_by(Phage_treatment, COG_category) %>% summarise(sumn= sum(n)) %>%
+#   ggplot(aes(x=Phage_treatment, 
+#              y=COG_category,
+#              fill=Reference,
+#              label=sumn))+
+#  # facet_wrap(Reference~.)+
+#   geom_tile(alpha=0.9)+
+#   geom_text()+
+#   theme_bw()+
+#   theme(panel.grid = element_blank(),
+#         strip.background = element_blank())
+
+compare_means(formula = n ~ Phage_treatment, 
+              data = data_for_stats, 
+              method = "wilcox.test", 
+              paired = FALSE,
+              group.by = NULL, ref.group = NULL)
+
+
+
+
+# NoPhage vs Evo2:
+ttest_data <- Variations_EGGNOG_and_KO_Combined %>% group_by(Phage_treatment, Generation, Replicate, Reference) %>% tally() %>% filter(Phage_treatment != "Staph1N")
+
+t.test(ttest_data$n ~ ttest_data$Phage_treatment)
+
+# NoPhage vs Staph1N
+ttest_data <- Variations_EGGNOG_and_KO_Combined %>% group_by(Phage_treatment, Generation, Replicate, Reference) %>% tally() %>% filter(Phage_treatment != "evo2")
+
+t.test(ttest_data$n ~ ttest_data$Phage_treatment)
+
+```
+
+# GO Enrichment:
+
+```{r}
+eggnog_go <- eggnog %>% filter(query %in% Variations_EGGNOG_and_KO_Combined$Falls_into) %>%
+  mutate(Reference = str_replace(query, "_contig.*","")) %>% select(Reference, GOs) 
+
+eggnog_go <-eggnog_go %>% 
+  filter(GOs != "-")
+
+eggnog_go <- separate_rows(eggnog_go, GOs) %>% filter(GOs != "GO")
+
+eggnog_go <- eggnog_go %>% distinct() %>%
+  mutate(GOs = paste0("GO:",GOs))
+
+eggnog_go %>% filter(Reference == "MRSA_252") %>% select(GOs) %>%
+  write.table("output_tables/go_enrichment_252.tsv",
+              row.names=FALSE,
+              quote = FALSE,
+              sep="\t")
+
+unique(eggnog_go$Reference)
+
+
+eggnog_go %>% filter(Reference == "MRSA_MW2") %>% select(GOs) %>%
+  write.table("output_tables/go_enrichment_MW2.tsv",
+              row.names=FALSE,
+              quote = FALSE,
+              sep="\t")
+
+
+eggnog_go %>% filter(Reference == "MRSA_LacFitz") %>% select(GOs) %>%
+  write.table("output_tables/go_enrichment_Lac.tsv",
+              row.names=FALSE,
+              quote = FALSE,
+              sep="\t")
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("topGO")
+BiocManager::install("ALL")
+
+library(topGO)
+library(ALL)
+data(ALL)
+data(geneList)
+affyLib <- paste(annotation(ALL), "db", sep = ".")
+affyLib
+
+
+
+```
+
