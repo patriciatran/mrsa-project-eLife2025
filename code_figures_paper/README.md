@@ -17,7 +17,7 @@
 
 - [Figure 4a](../rnaseq/Rcode/figures/volcanoplot_rnaseq_LacFitz_pajd_value=0.002_selectLabelsOnly.pdf)
 - [Figure 4b](../rnaseq/Rcode/figures/volcanoplot_rnaseq_MW2_pajd_value=0.002_selectLabelsOnly.pdf)
-- [Source Code 2](../rnaseq/Rcode/deseq-rnaseq.md)
+- [Source Code 2](../rnaseq/Rcode/deseq2-rnaseq.Rmd)
 
 # Figure S3 Panel B
 
