@@ -9,8 +9,8 @@
 
 
 # Figure 3
-
-- [Figure 3](./cog_categories.pdf)
+- [Figure 3a] (./gen2_variations_paper.pdf)
+- [Figure 3b](./cog_categories.pdf)
 - [Source Code 1](Variants_copy.Rmd)
 
 # Figure 4. Volcano plots
@@ -19,12 +19,12 @@
 - [Figure 4b](../rnaseq/Rcode/figures/volcanoplot_rnaseq_MW2_pajd_value=0.002_selectLabelsOnly.pdf)
 - [Source Code 2](../rnaseq/Rcode/deseq2-rnaseq.Rmd)
 
-# Figure S3 Panel B
+# Figure 2 Figure Supplement 1 Panel B
 
-- [Figure S3](./mutation.pdf)
+- [Figure S2 - figure Supplement 1](./mutation.pdf)
 - [Source Code 3](./mutation.R)
 
-## Figure S6
+## Figure 3 - Figure Supplement 1
 - [Figure S6](./stats_plot.pdf)
 - [Source Code 1](Variants_copy.Rmd)
 
