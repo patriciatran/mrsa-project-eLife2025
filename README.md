@@ -1,5 +1,5 @@
 ![Static Badge](https://img.shields.io/badge/Manuscript-Accepted-159e2b)
-![Static Badge](https://img.shields.io/badge/Code-Currently_Verifying-fcd253)
+![Static Badge](https://img.shields.io/badge/Code-Completed-159e2b)
 
 # MRSA Project
 
